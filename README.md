@@ -1,9 +1,11 @@
 
 # Demo
-Video :
-https://libere-public-10.vercel.app
 
-web :  https://www.youtube.com/watch?v=XoYGTREQ3tk&t=1s
+
+Video :  https://www.youtube.com/watch?v=XoYGTREQ3tk&t=1s
+
+Web:
+https://libere-public-10.vercel.app
 
 Contract https://opencampus-codex.blockscout.com/address/0x8496454E587254e4A7491Dc1c719954b5bd0355f
 
