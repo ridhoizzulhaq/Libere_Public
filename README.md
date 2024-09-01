@@ -1,70 +1,221 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Demo
+Video :
+https://libere-public-10.vercel.app
 
-## Available Scripts
+web :  https://www.youtube.com/watch?v=XoYGTREQ3tk&t=1s
 
-In the project directory, you can run:
+Libere addresses the limitations of traditional platforms like Kindle, which impose high charge and restrict creators' control over their work, by offering a decentralized alternative that empowers creators to mint and sell their eBooks as NFTs. Additionally, Libere provides an Open Library, which, unlike digital public libraries like Project Gutenberg that offer a limited selection of public domain books, Open Library allows for a diverse range of educational content to be shared and accessed by the OpenCampus community. Users can easily purchase, access, and contribute to this communal digital library, with smart contracts ensuring fair and transparent management of resources.
 
-### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+# Smart Contract
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
 
-### `npm test`
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-### `npm run build`
+contract LibereLibrary is ERC1155, Ownable, ERC2981, IERC1155Receiver {
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+    struct Item {
+        uint256 id;
+        uint256 price;
+        address payable recipient;
+        uint256 balance;  // Track funds available for withdrawal
+    }
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+    struct AccessInfo {
+        uint256 tokenId;
+        address user;
+        uint256 accessEndTime;
+    }
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+    mapping(uint256 => Item) public items;
+    mapping(uint256 => string) private tokenURIs;
+    mapping(address => AccessInfo) public accessRegistry;
+    mapping(uint256 => uint256) public accessCount; // Track how many users have access to each tokenId
 
-### `npm run eject`
+    event ItemCreated(uint256 indexed id, uint256 price, address indexed recipient, address indexed creator, uint96 royalty, string metadataUri);
+    event ItemPurchased(address indexed buyer, uint256 indexed id, uint256 amount);
+    event ItemPurchasedForLibrary(address indexed buyer, uint256 indexed id, uint256 amount);
+    event Withdrawal(address indexed recipient, uint256 amount);
+    event NFTRented(address indexed user, uint256 indexed tokenId, uint256 accessEndTime);
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+    constructor() ERC1155("Libere") Ownable(msg.sender) {}
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+    function createItem(
+        uint256 id, 
+        uint256 price, 
+        address payable recipient, 
+        address royaltyRecipient, 
+        uint96 royaltyValue, 
+        string memory metadataUri
+    ) 
+        public 
+        onlyOwner 
+    {
+        require(recipient != address(0), "Invalid recipient address");
+        require(price > 0, "Price must be greater than zero");
+        require(royaltyValue <= 1000, "Royalty too high");
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+        items[id] = Item({
+            id: id,
+            price: price,
+            recipient: recipient,
+            balance: 0  // Initialize balance
+        });
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+        tokenURIs[id] = metadataUri;
 
-## Learn More
+        // Set royalty info using ERC-2981
+        _setTokenRoyalty(id, royaltyRecipient, royaltyValue);
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+        emit ItemCreated(id, price, recipient, royaltyRecipient, royaltyValue, metadataUri);
+    }
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+    function purchaseItem(uint256 id, uint256 amount) public payable {
+        Item storage item = items[id];
+        require(item.price > 0, "Item does not exist");
+        require(msg.value == item.price * amount, "Incorrect Ether value sent");
 
-### Code Splitting
+        _mint(msg.sender, id, amount, "");
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+        // Update the balance available for withdrawal
+        item.balance += msg.value;
 
-### Analyzing the Bundle Size
+        emit ItemPurchased(msg.sender, id, amount);
+    }
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+    function purchaseItemForLibrary(uint256 id, uint256 amount) public payable {
+        Item storage item = items[id];
+        require(item.price > 0, "Item does not exist");
+        require(msg.value == item.price * amount, "Incorrect Ether value sent");
 
-### Making a Progressive Web App
+        // Mint the NFT directly to the contract (library)
+        _mint(address(this), id, amount, "");
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+        // Update the balance available for withdrawal
+        item.balance += msg.value;
 
-### Advanced Configuration
+        emit ItemPurchasedForLibrary(msg.sender, id, amount);
+    }
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+    function withdrawFunds(uint256 id) public {
+        Item storage item = items[id];
+        require(msg.sender == item.recipient, "Only the recipient can withdraw");
+        uint256 amount = item.balance;
+        require(amount > 0, "No funds available for withdrawal");
 
-### Deployment
+        item.balance = 0;  // Reset the balance before sending to prevent re-entrancy attacks
+        (bool success, ) = item.recipient.call{value: amount}("");
+        require(success, "Withdrawal failed");
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+        emit Withdrawal(item.recipient, amount);
+    }
 
-### `npm run build` fails to minify
+    function rentAccess(uint256 id) public {
+        require(balanceOf(address(this), id) > 0, "Library does not hold this NFT");
+        require(accessCount[id] < balanceOf(address(this), id), "No more access available for this NFT");
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+        AccessInfo storage accessInfo = accessRegistry[msg.sender];
+        require(accessInfo.accessEndTime < block.timestamp, "Previous access still valid");
+
+        accessInfo.tokenId = id;
+        accessInfo.user = msg.sender;
+        accessInfo.accessEndTime = block.timestamp + 3 days;
+
+        accessCount[id] += 1;
+
+        emit NFTRented(msg.sender, id, accessInfo.accessEndTime);
+    }
+
+    function hasAccess(address user, uint256 id) public view returns (bool) {
+        AccessInfo memory accessInfo = accessRegistry[user];
+        return accessInfo.tokenId == id && accessInfo.accessEndTime > block.timestamp;
+    }
+
+    function getAccessInfo(uint256 id) public view returns (uint256 availableNFTs, uint256 accessedNFTs) {
+        availableNFTs = balanceOf(address(this), id);
+        accessedNFTs = accessCount[id];
+        return (availableNFTs, accessedNFTs);
+    }
+
+    function uri(uint256 id) public view override returns (string memory) {
+        return tokenURIs[id];
+    }
+
+    function setURI(uint256 id, string memory newuri) public onlyOwner {
+        require(items[id].id > 0, "Item does not exist");
+        tokenURIs[id] = newuri;
+    }
+
+    function checkBalance(uint256 id) public view returns (uint256) {
+        return items[id].balance;
+    }
+
+    // Implement the onERC1155Received function to handle single NFT transfers
+    function onERC1155Received(
+        address, // operator
+        address, // from
+        uint256, // id
+        uint256, // value
+        bytes calldata // data
+    ) external pure override returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+
+    // Implement the onERC1155BatchReceived function to handle batch NFT transfers
+    function onERC1155BatchReceived(
+        address, // operator
+        address, // from
+        uint256[] calldata, // ids
+        uint256[] calldata, // values
+        bytes calldata // data
+    ) external pure override returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    // Override supportsInterface to merge ERC1155, ERC2981, and IERC1155Receiver interfaces
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, ERC2981, IERC165) returns (bool) {
+        return 
+            interfaceId == type(IERC1155Receiver).interfaceId || 
+            ERC1155.supportsInterface(interfaceId) || 
+            ERC2981.supportsInterface(interfaceId) || 
+            interfaceId == type(IERC165).interfaceId;
+    }
+}
+
+
+
+## Main Function :
+
+reateItem:  
+This function allows the contract owner to create a new NFT. It assigns a price, recipient, and metadata URI to the item. It also sets up royalty information using ERC2981.
+
+purchaseItem:   
+Allows a user to purchase a specified amount of an NFT by sending the required amount of Ether. The NFT is then minted to the buyer's address, and the funds are added to the item's balance for withdrawal.
+
+purchaseItemForLibrary:     
+Similar to purchaseItem, but the NFT is minted directly to the contract (representing the library). This allows users to buy NFTs that are added to the library's collection.
+
+withdrawFunds:  
+Allows the recipient of an item to withdraw the accumulated funds from the sales of their item. The balance is reset after withdrawal to prevent re-entrancy attacks.
+
+rentAccess:     
+Allows a user to rent access to an NFT from the library. The user can access the NFT for a limited time (e.g., 3 days). The function checks that the library holds the NFT and that there are available copies for access.
+
+hasAccess:  
+Checks if a user currently has access to a specific NFT by verifying if their access time has not expired.
+
+getAccessInfo:  
+Returns the number of available NFTs and the number of users who currently have access to a specific NFT in the library.
+
+checkBalance:   
+Returns the balance of funds available for withdrawal for a specific item.
+
+
