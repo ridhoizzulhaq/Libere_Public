@@ -5,8 +5,11 @@ https://libere-public-10.vercel.app
 
 web :  https://www.youtube.com/watch?v=XoYGTREQ3tk&t=1s
 
-Libere addresses the limitations of traditional platforms like Kindle, which impose high charge and restrict creators' control over their work, by offering a decentralized alternative that empowers creators to mint and sell their eBooks as NFTs. Additionally, Libere provides an Open Library, which, unlike digital public libraries like Project Gutenberg that offer a limited selection of public domain books, Open Library allows for a diverse range of educational content to be shared and accessed by the OpenCampus community. Users can easily purchase, access, and contribute to this communal digital library, with smart contracts ensuring fair and transparent management of resources.
+Contract https://opencampus-codex.blockscout.com/address/0x8496454E587254e4A7491Dc1c719954b5bd0355f
 
+Details : https://dorahacks.io/buidl/15906
+
+Libere addresses the limitations of traditional platforms like Kindle, which impose high charge and restrict creators' control over their work, by offering a decentralized alternative that empowers creators to mint and sell their eBooks as NFTs. Additionally, Libere provides an Open Library, which, unlike digital public libraries like Project Gutenberg that offer a limited selection of public domain books, Open Library allows for a diverse range of educational content to be shared and accessed by the OpenCampus community. Users can easily purchase, access, and contribute to this communal digital library, with smart contracts ensuring fair and transparent management of resources.
 
 # Smart Contract
 
