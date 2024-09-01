@@ -197,7 +197,7 @@ contract LibereLibrary is ERC1155, Ownable, ERC2981, IERC1155Receiver {
 
 ## Main Function :
 
-reateItem:  
+createItem:  
 This function allows the contract owner to create a new NFT. It assigns a price, recipient, and metadata URI to the item. It also sets up royalty information using ERC2981.
 
 purchaseItem:   
